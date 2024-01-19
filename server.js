@@ -1,33 +1,68 @@
-const express = require('express')
+const express = require('express');
+const path = require('path');
+const fs = require('fs');
+
 const PORT = 3333;
+
 const app = express();
-const path = require('path')
 
-// GET ROUTE - LISTENING FOR THE CLIENT TO VISIT LOCALHOST: 3333/TEST
-app.get('/test', (requestObj, responseObj) => {
-  responseObj.send('Hi from the server! I LOVE YOU VERY MUCH');
+async function getUserData() {
+  const users = await fs.promises.readFile('./data.json', 'utf8');
+
+  return JSON.parse(users);
+}
+
+async function saveUserData(usersArr) {
+  await fs.promises.writeFile('./data.json', JSON.stringify(usersArr, null, 2));
+
+  console.log('User Data Updated');
+}
+
+// Opening up the middleware channel to allow json to be sent through from the client
+app.use(express.json());
+
+// Route to retreive/GET all users from the json database
+app.get('/api/users', async (requestObj, responseObj) => {
+  // Read the json file data
+  const users = await getUserData();
+
+  responseObj.send(users);
 });
 
-app.get('/', (requestObj, responseObj) => {
-  responseObj.send('root visited')
-});
+// Route to add a user to the json database
+app.post('/api/users', async (requestObj, responseObj) => {
+  // Get the old users array
+  const users = await getUserData();
 
-app.get('/api/recipe', (requestObj, responseObj) => {
+  // Overwrite the old array with the newly updated array
+  if (!users.find(user => user.username === requestObj.body.username) && requestObj.body.username) {
+    // Push the body object from the client to our old array
+    users.push(requestObj.body);
+
+    await saveUserData(users);
+
+    return responseObj.send({
+      message: 'User added successfully!'
+    });
+  }
+
   responseObj.send({
-    name: 'Hey man here is the name of the recipe Pizza',
-    ingredients: ['cheese', 'sauce', 'bread']
+    error: 402,
+    message: 'User already exists'
   });
-});
 
-app.get('/page', (requestObj, responseObj) => {
-  responseObj.sendFile(path.join(__dirname, './index.html'))
 });
-
-// FALLBACK
-app.use((requestObj, responseObj) => {
-  responseObj.sendFile(path.join(__dirname, './notfound.html'))
-})
 
 app.listen(PORT, () => {
-  console.log('Server started on port', PORT)
+  console.log('Server started on port', PORT);
 });
+
+
+
+
+
+
+
+
+
+
